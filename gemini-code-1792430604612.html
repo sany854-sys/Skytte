@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SkytteDagboken - Tränings- & Resultatdagbok</title>
+    <!-- Web App Manifest for PWA installation -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlNreXR0ZURhZ2Jva2VuIiwKICAic2hvcnRfbmFtZSI6ICJTa3l0dGVEYWdib2siLAogICJzdGFydF91cmwiOiAiaW5kZXguaHRtbCIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTcyYSIsCiAgInRoZW1lX2NvbG9yIjogIiNmNTllMGIiLAogICJpY29ucyI6IFtdCn0=">
+    <meta name="theme-color" content="#f59e0b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SkytteDagbok">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fffbebeb',
+                            100: '#fef3c7',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                            900: '#78350f',
+                        },
+                        darkbg: '#0f172a',
+                        cardbg: '#1e293b',
+                        cardborder: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome & Lucide -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .target-overlay {
+            background: radial-gradient(circle, transparent 20%, rgba(245, 158, 11, 0.15) 21%, transparent 22%),
+                        radial-gradient(circle, transparent 40%, rgba(245, 158, 11, 0.15) 41%, transparent 42%),
+                        radial-gradient(circle, transparent 60%, rgba(245, 158, 11, 0.15) 61%, transparent 62%),
+                        radial-gradient(circle, transparent 80%, rgba(245, 158, 11, 0.15) 81%, transparent 82%);
+        }
+        .shot-bullet {
+            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0) translate(-50%, -50%); }
+            100% { transform: scale(1) translate(-50%, -50%); }
+        }
+        /* Custom scrollbar for dark mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white pb-12">
+
+    <!-- Direct Mobile Camera Fallback Trigger -->
+    <input type="file" id="directCameraInput" accept="image/*" capture="environment" class="hidden">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-500 text-slate-950 p-2 rounded-xl font-black text-xl flex items-center justify-center w-10 h-10 shadow-lg shadow-brand-500/20">
+                    <i data-lucide="crosshair" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide text-white">SkytteDagboken</h1>
+                    <p class="text-xs text-slate-400">Pistolskytte & Resultatutveckling</p>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="flex items-center space-x-2">
+                <button onclick="openScannerDirectly()" class="bg-brand-500/20 hover:bg-brand-500/30 text-brand-400 border border-brand-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Kamera</span>
+                </button>
+                <button onclick="openSettingsModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" title="Inställningar & Data">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tab Navigation -->
+        <nav class="flex border-t border-slate-800/80 bg-slate-950/50">
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-3 text-center text-sm font-medium text-brand-400 border-b-2 border-brand-500 flex items-center justify-center gap-2 transition">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Översikt
+            </button>
+            <button onclick="switchTab('new-session')" id="tab-new-session" class="flex-1 py-3 text-center text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-2 transition">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> Nytt Pass
+            </button>
+            <button onclick="switchTab('history')" id="tab-history" class="flex-1 py-3 text-center text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-2 transition">
+                <i data-lucide="history" class="w-4 h-4"></i> Historik
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
+
+        <!-- ==================== DASHBOARD TAB ==================== -->
+        <section id="view-dashboard" class="space-y-6">
+            
+            <!-- Quick Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-cardbg border border-cardborder rounded-xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Totalt Skjutna Skott</div>
+                    <div class="text-2xl font-black text-white mt-1" id="stat-total-shots">0</div>
+                    <div class="text-xs text-brand-400 mt-1 flex items-center gap-1">
+                        <i data-lucide="disc" class="w-3 h-3"></i> Alla registrerade pass
+                    </div>
+                </div>
+                
+                <div class="bg-cardbg border border-cardborder rounded-xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Totalt Antal Pass</div>
+                    <div class="text-2xl font-black text-white mt-1" id="stat-total-sessions">0</div>
+                    <div class="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                        <i data-lucide="calendar" class="w-3 h-3"></i> Skjutbanebesök
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder rounded-xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Snitt Precision (50p)</div>
+                    <div class="text-2xl font-black text-white mt-1" id="stat-avg-precision">0.0</div>
+                    <div class="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                        <i data-lucide="target" class="w-3 h-3"></i> Senaste 10 serierna
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder rounded-xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Bästa Serie (PB)</div>
+                    <div class="text-2xl font-black text-brand-400 mt-1" id="stat-pb-series">0</div>
+                    <div class="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                        <i data-lucide="trophy" class="w-3 h-3"></i> Personbästa
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Development Chart -->
+                <div class="lg:col-span-2 bg-cardbg border border-cardborder rounded-xl p-5 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="font-bold text-white text-base flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-5 h-5 text-brand-500"></i> Poängutveckling Över Tid
+                        </h2>
+                        <select id="chart-filter" onchange="renderCharts()" class="bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-500">
+                            <option value="precision">Precision (Serie Snitt)</option>
+                            <option value="field">Fältskytte (Träff/Figur)</option>
+                        </select>
+                    </div>
+                    <div class="h-64 w-full">
+                        <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Weapon Distribution & Shot Counters -->
+                <div class="bg-cardbg border border-cardborder rounded-xl p-5 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h2 class="font-bold text-white text-base mb-4 flex items-center gap-2">
+                            <i data-lucide="shield" class="w-5 h-5 text-brand-500"></i> Skotträknare Per Vapen
+                        </h2>
+                        <div id="weapon-shot-list" class="space-y-3">
+                            <!-- Populated dynamically -->
+                            <p class="text-xs text-slate-400 italic">Inga registrerade skott ännu.</p>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-800">
+                        <button onclick="switchTab('new-session')" class="w-full bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold py-2.5 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Registrera Nytt Skjutpass
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Sessions Summary -->
+            <div class="bg-cardbg border border-cardborder rounded-xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-white text-base flex items-center gap-2">
+                        <i data-lucide="clock" class="w-5 h-5 text-brand-500"></i> Senaste Skjutpass
+                    </h2>
+                    <button onclick="switchTab('history')" class="text-xs text-brand-400 hover:underline flex items-center gap-1">
+                        Visa alla <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                    </button>
+                </div>
+                <div id="recent-sessions-container" class="space-y-3">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ==================== NEW SESSION TAB ==================== -->
+        <section id="view-new-session" class="hidden space-y-6">
+            <div class="bg-cardbg border border-cardborder rounded-xl p-5 md:p-6 shadow-sm">
+                <h2 class="font-bold text-white text-lg mb-6 flex items-center gap-2 pb-3 border-b border-slate-800">
+                    <i data-lucide="pen-tool" class="w-5 h-5 text-brand-500"></i> Registrera Skjutpass
+                </h2>
+
+                <form id="session-form" onsubmit="saveSession(event)" class="space-y-6">
+                    <!-- Basic Information Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Datum & Tid</label>
+                            <input type="datetime-local" id="field-date" required class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Skjutbana / Plats</label>
+                            <input type="text" id="field-location" placeholder="t.ex. Haninge Skjutbana" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Gren / Skytteform</label>
+                            <select id="field-discipline" onchange="toggleDisciplineFields()" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+                                <option value="precision">Precision (50p serier)</option>
+                                <option value="duell">Duell / Snabbpistol</option>
+                                <option value="field">Fältskytte (Träff/Figur)</option>
+                                <option value="ipsc">IPSC / Dynamiskt</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Equipment Info Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Vapen</label>
+                            <input type="text" id="field-weapon" placeholder="t.ex. Pardini SP, Neuhausen 9mm" required class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Kaliber</label>
+                            <select id="field-caliber" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+                                <option value=".22 LR">.22 LR</option>
+                                <option value="9mm">9mm Parabellum</option>
+                                <option value=".32 S&W">.32 S&W Long</option>
+                                <option value=".38 Special">.38 Special</option>
+                                <option value=".45 ACP">.45 ACP</option>
+                                <option value="Annan">Annan kaliber</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Ammunition (Märke/Laddning)</label>
+                            <input type="text" id="field-ammo" placeholder="t.ex. SK Standard Plus, TopShot 9mm" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+                        </div>
+                    </div>
+
+                    <!-- CAMERA / TARGET SCANNER LAUNCHER -->
+                    <div class="p-4 bg-slate-900/80 border border-slate-800 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-brand-500/10 text-brand-400 rounded-xl border border-brand-500/20">
+                                <i data-lucide="camera" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-white text-sm">Direkt Måltavleskanner med Kamera</h3>
+                                <p class="text-xs text-slate-400">Fotografera tavlan, klicka ut skotten och beräkna poäng automatiskt!</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="openScannerDirectly()" class="w-full sm:w-auto bg-brand-500 hover:bg-brand-600 text-slate-950 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-md shadow-brand-500/10 whitespace-nowrap">
+                            <i data-lucide="aperture" class="w-4 h-4"></i> Öppna Kamera & Skanna
+                        </button>
+                    </div>
+
+                    <!-- SERIES SCORES SECTION -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-bold text-slate-200 text-sm flex items-center gap-2">
+                                <i data-lucide="list-checks" class="w-4 h-4 text-brand-400"></i> Serieresultat
+                            </h3>
+                            <button type="button" onclick="addSeriesInput()" class="text-xs bg-slate-800 hover:bg-slate-700 text-brand-400 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1 transition">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Lägg till Serie
+                            </button>
+                        </div>
+
+                        <div id="series-container" class="space-y-3">
+                            <!-- Series Rows inserted by JS -->
+                        </div>
+
+                        <!-- Live Summary Box -->
+                        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Beräknad Totalpoäng: <strong id="live-total-score" class="text-white text-sm font-bold ml-1">0</strong></span>
+                            <span class="text-slate-400">Innertior (X): <strong id="live-total-x" class="text-brand-400 text-sm font-bold ml-1">0</strong></span>
+                            <span class="text-slate-400">Seriesnitt: <strong id="live-avg-score" class="text-emerald-400 text-sm font-bold ml-1">0.0</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Readiness & Subjective Tracking -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Dagsform / Känsla (1 - 5)</label>
+                            <div class="flex items-center space-x-2 bg-slate-900 border border-slate-700 rounded-lg p-2">
+                                <input type="range" id="field-readiness" min="1" max="5" value="3" oninput="document.getElementById('readiness-val').innerText = this.value" class="w-full accent-brand-500">
+                                <span id="readiness-val" class="font-bold text-brand-400 text-sm px-2">3</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Träningsfokus / Taggar</label>
+                            <input type="text" id="field-tags" placeholder="t.ex. Avfyrning, Riktbild, Fysisk träning" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500">
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Anteckningar & Reflektioner</label>
+                        <textarea id="field-notes" rows="3" placeholder="Vad gick bra? Vad behöver tränas mer på nästa pass?" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"></textarea>
+                    </div>
+
+                    <!-- Attached Target Image Thumbnail Preview -->
+                    <div id="target-image-preview-container" class="hidden space-y-2">
+                        <label class="block text-xs font-medium text-slate-300">Bifogad Måltavlebild</label>
+                        <div class="relative w-32 h-32 rounded-lg overflow-hidden border border-brand-500/50">
+                            <img id="target-image-preview" src="" alt="Skannad tavla" class="w-full h-full object-cover">
+                            <button type="button" onclick="removeAttachedTargetImage()" class="absolute top-1 right-1 bg-red-600/80 hover:bg-red-600 text-white rounded-full p-1 transition">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Form Action Buttons -->
+                    <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                        <button type="button" onclick="switchTab('dashboard')" class="px-5 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-semibold transition">
+                            Avbryt
+                        </button>
+                        <button type="submit" class="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/20 transition flex items-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> Spara Skjutpass
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==================== HISTORY TAB ==================== -->
+        <section id="view-history" class="hidden space-y-6">
+            <div class="bg-cardbg border border-cardborder rounded-xl p-5 shadow-sm">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <h2 class="font-bold text-white text-lg flex items-center gap-2">
+                        <i data-lucide="file-text" class="w-5 h-5 text-brand-500"></i> Historik & Dagbok
+                    </h2>
+                    
+                    <!-- Search & Filter Controls -->
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <input type="text" id="history-search" oninput="renderHistoryList()" placeholder="Sök platser, anteckningar..." class="bg-slate-900 border border-slate-700 text-xs text-white px-3 py-2 rounded-lg focus:outline-none focus:border-brand-500 flex-1 sm:w-48">
+                        <select id="history-filter-discipline" onchange="renderHistoryList()" class="bg-slate-900 border border-slate-700 text-xs text-slate-300 px-3 py-2 rounded-lg focus:outline-none focus:border-brand-500">
+                            <option value="all">Alla Grenar</option>
+                            <option value="precision">Precision</option>
+                            <option value="duell">Duell</option>
+                            <option value="field">Fält</option>
+                            <option value="ipsc">IPSC</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Session List Container -->
+                <div id="history-list-container" class="space-y-3">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== CAMERA / TARGET SCANNER MODAL ==================== -->
+    <div id="modal-scanner" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex flex-col justify-between p-4 overflow-y-auto">
+        <div class="max-w-2xl mx-auto w-full bg-cardbg border border-cardborder rounded-2xl overflow-hidden shadow-2xl my-auto flex flex-col">
+            <!-- Modal Header -->
+            <div class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="target" class="w-5 h-5 text-brand-500"></i>
+                    <h3 class="font-bold text-white text-sm">Måltavleskanner & Skottanalys</h3>
+                </div>
+                <button onclick="closeScannerModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body / Target Display Area -->
+            <div class="p-4 space-y-4 flex-1">
+                <!-- Camera Viewfinder / Interactive Canvas Area -->
+                <div class="relative w-full aspect-square bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center group" id="scanner-viewport">
+                    
+                    <!-- Live Video Stream -->
+                    <video id="camera-stream" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+
+                    <!-- Target Canvas with Interactive Shot Placement -->
+                    <canvas id="target-canvas" class="w-full h-full object-contain cursor-crosshair hidden"></canvas>
+
+                    <!-- Overlay Target Reticle (during live camera view) -->
+                    <div id="camera-reticle" class="absolute inset-0 pointer-events-none border-2 border-brand-500/30 rounded-full m-8 flex items-center justify-center hidden">
+                        <div class="w-12 h-12 border border-brand-500/50 rounded-full"></div>
+                        <div class="absolute w-full h-0.5 bg-brand-500/20"></div>
+                        <div class="absolute h-full w-0.5 bg-brand-500/20"></div>
+                    </div>
+
+                    <!-- Placeholder before image captured -->
+                    <div id="scanner-placeholder" class="text-center p-6 space-y-3">
+                        <div class="w-16 h-16 bg-brand-500/10 text-brand-400 rounded-full flex items-center justify-center mx-auto border border-brand-500/20">
+                            <i data-lucide="camera" class="w-8 h-8"></i>
+                        </div>
+                        <p class="text-xs text-slate-400 max-w-xs mx-auto">
+                            Fotografera din skjutna precisionstavla eller ladda upp en bild från galleriet för att klicka ut träffarna.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Scanner Controls & Live Calculated Scores -->
+                <div class="flex flex-wrap justify-between items-center gap-2 pt-2">
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="startLiveCamera()" class="bg-brand-500 hover:bg-brand-600 text-slate-950 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
+                            <i data-lucide="video" class="w-4 h-4"></i> Starta Kamera
+                        </button>
+                        <button type="button" onclick="triggerFilePicker()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 transition">
+                            <i data-lucide="image" class="w-4 h-4"></i> Välj Bild
+                        </button>
+                        <button type="button" onclick="captureSnapshot()" id="btn-snapshot" class="hidden bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
+                            <i data-lucide="aperture" class="w-4 h-4"></i> Ta Bild
+                        </button>
+                    </div>
+
+                    <button type="button" onclick="clearScannedShots()" class="text-xs text-red-400 hover:underline flex items-center gap-1">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Rensa skott
+                    </button>
+                </div>
+
+                <!-- Scanned Score Calculation Summary -->
+                <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 grid grid-cols-3 text-center text-xs">
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase">Registrerade Skott</span>
+                        <strong id="scanned-shot-count" class="text-white text-base">0</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase">Beräknad Poäng</span>
+                        <strong id="scanned-total-score" class="text-brand-400 text-base">0</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase">Innertior (X)</span>
+                        <strong id="scanned-x-count" class="text-emerald-400 text-base">0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end gap-2">
+                <button onclick="closeScannerModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition">
+                    Avbryt
+                </button>
+                <button onclick="applyScannedScoreToSession()" class="px-5 py-2 rounded-xl text-xs font-bold bg-brand-500 hover:bg-brand-600 text-slate-950 transition flex items-center gap-1.5">
+                    <i data-lucide="check" class="w-4 h-4"></i> För över poäng till passet
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SESSION DETAIL MODAL ==================== -->
+    <div id="modal-session-detail" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="max-w-xl w-full bg-cardbg border border-cardborder rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+            <div class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                <h3 class="font-bold text-white text-base" id="detail-title">Passdetaljer</h3>
+                <button onclick="closeDetailModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto text-xs text-slate-300" id="detail-body">
+                <!-- Dynamic Content -->
+            </div>
+            <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end">
+                <button onclick="closeDetailModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200 hover:bg-slate-700">
+                    Stäng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SETTINGS & BACKUP MODAL ==================== -->
+    <div id="modal-settings" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="max-w-md w-full bg-cardbg border border-cardborder rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                <h3 class="font-bold text-white text-base flex items-center gap-2">
+                    <i data-lucide="settings" class="w-4 h-4 text-brand-400"></i> Inställningar & Data
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4 text-xs">
+                <div>
+                    <h4 class="font-bold text-white mb-1">Säkerhetskopiering (Backup)</h4>
+                    <p class="text-slate-400 mb-3">All din data sparas lokalt i din webbläsare. Du kan exportera din data för att spara en säkerhetskopia.</p>
+                    <div class="flex gap-2">
+                        <button onclick="exportDataJSON()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium py-2 rounded-lg flex items-center justify-center gap-1.5 transition">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportera JSON
+                        </button>
+                        <button onclick="document.getElementById('import-file-input').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium py-2 rounded-lg flex items-center justify-center gap-1.5 transition">
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> Importera JSON
+                        </button>
+                        <input type="file" id="import-file-input" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800">
+                    <h4 class="font-bold text-white mb-1">Testa Applikationen</h4>
+                    <p class="text-slate-400 mb-2">Ladda in exempeldata för att utvärdera grafer och historik.</p>
+                    <button onclick="loadDemoData()" class="w-full bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 border border-brand-500/30 font-semibold py-2 rounded-lg transition">
+                        Ladda in Exempeldata
+                    </button>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800">
+                    <h4 class="font-bold text-red-400 mb-1">Nollställ Data</h4>
+                    <p class="text-slate-400 mb-2">Radera alla sparade skjutpass permanent.</p>
+                    <button onclick="clearAllData()" class="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30 font-semibold py-2 rounded-lg transition">
+                        Rensa All Data
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-200">
+                    Klar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="max-w-6xl mx-auto px-4 py-4 text-center text-xs text-slate-400 border-t border-slate-800/60 mt-auto">
+        <p>© 2026 SkytteDagboken • Sparas lokalt på din enhet</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Global Application State
+        let shootingSessions = [];
+        let activeDiscipline = 'precision';
+        let scannedShots = []; // Shots detected/clicked in scanner
+        let scannedTargetImageBase64 = null;
+        let progressChartInstance = null;
+        let mediaStream = null;
+
+        // On Page Load Initialization
+        document.addEventListener("DOMContentLoaded", () => {
+            lucide.createIcons();
+            loadSessionsFromStorage();
+            setDefaultDateTime();
+            renderSeriesInputs();
+            renderDashboard();
+
+            // Set up direct camera input listener
+            document.getElementById('directCameraInput').addEventListener('change', handleDirectCameraFile);
+        });
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            ['dashboard', 'new-session', 'history'].forEach(tab => {
+                const view = document.getElementById(`view-${tab}`);
+                const btn = document.getElementById(`tab-${tab}`);
+                if (tab === tabName) {
+                    view.classList.remove('hidden');
+                    btn.classList.add('text-brand-400', 'border-brand-500');
+                    btn.classList.remove('text-slate-400', 'border-transparent');
+                } else {
+                    view.classList.add('hidden');
+                    btn.classList.remove('text-brand-400', 'border-brand-500');
+                    btn.classList.add('text-slate-400', 'border-transparent');
+                }
+            });
+
+            if (tabName === 'dashboard') {
+                renderDashboard();
+            } else if (tabName === 'history') {
+                renderHistoryList();
+            }
+        }
+
+        // Set default datetime picker to current time
+        function setDefaultDateTime() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('field-date').value = now.toISOString().slice(0, 16);
+        }
+
+        // Local Storage Management
+        function loadSessionsFromStorage() {
+            const stored = localStorage.getItem('skytte_sessions_v1');
+            if (stored) {
+                try {
+                    shootingSessions = JSON.parse(stored);
+                } catch (e) {
+                    console.error("Kunde inte läsa sparad data", e);
+                    shootingSessions = [];
+                }
+            }
+        }
+
+        function saveSessionsToStorage() {
+            localStorage.setItem('skytte_sessions_v1', JSON.stringify(shootingSessions));
+        }
+
+        // Dynamic Series Inputs Rendering
+        function toggleDisciplineFields() {
+            activeDiscipline = document.getElementById('field-discipline').value;
+            renderSeriesInputs();
+        }
+
+        function renderSeriesInputs(existingSeries = null) {
+            const container = document.getElementById('series-container');
+            container.innerHTML = '';
+
+            const defaultCount = activeDiscipline === 'field' ? 8 : 6;
+            const count = existingSeries ? existingSeries.length : defaultCount;
+
+            for (let i = 0; i < count; i++) {
+                const seriesData = existingSeries ? existingSeries[i] : null;
+                const row = document.createElement('div');
+                row.className = 'grid grid-cols-12 gap-2 items-center bg-slate-900/60 p-2 rounded-lg border border-slate-800';
+
+                if (activeDiscipline === 'field') {
+                    // Field Shooting Inputs: Träff & Figur
+                    row.innerHTML = `
+                        <div class="col-span-2 text-xs font-bold text-slate-400 pl-1">Station ${i + 1}</div>
+                        <div class="col-span-4">
+                            <input type="number" min="0" max="6" placeholder="Träff (0-6)" value="${seriesData ? seriesData.hits : ''}" oninput="calculateLiveTotals()" class="series-hits w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div class="col-span-4">
+                            <input type="number" min="0" max="6" placeholder="Figurer (0-6)" value="${seriesData ? seriesData.targets : ''}" oninput="calculateLiveTotals()" class="series-targets w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div class="col-span-2 text-right">
+                            <button type="button" onclick="this.closest('.grid').remove(); calculateLiveTotals();" class="text-slate-500 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    `;
+                } else {
+                    // Precision/Duell Inputs: Points & X count
+                    row.innerHTML = `
+                        <div class="col-span-2 text-xs font-bold text-slate-400 pl-1">Serie ${i + 1}</div>
+                        <div class="col-span-5">
+                            <input type="number" min="0" max="50" placeholder="Poäng (0-50)" value="${seriesData ? seriesData.score : ''}" oninput="calculateLiveTotals()" class="series-score w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-500 font-semibold">
+                        </div>
+                        <div class="col-span-3">
+                            <input type="number" min="0" max="5" placeholder="Antal X" value="${seriesData ? seriesData.xCount : ''}" oninput="calculateLiveTotals()" class="series-x w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-500 text-brand-400">
+                        </div>
+                        <div class="col-span-2 text-right">
+                            <button type="button" onclick="this.closest('.grid').remove(); calculateLiveTotals();" class="text-slate-500 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    `;
+                }
+                container.appendChild(row);
+            }
+            lucide.createIcons();
+            calculateLiveTotals();
+        }
+
+        function addSeriesInput() {
+            const container = document.getElementById('series-container');
+            const index = container.children.length + 1;
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-12 gap-2 items-center bg-slate-900/60 p-2 rounded-lg border border-slate-800';
+
+            if (activeDiscipline === 'field') {
+                row.innerHTML = `
+                    <div class="col-span-2 text-xs font-bold text-slate-400 pl-1">Station ${index}</div>
+                    <div class="col-span-4"><input type="number" min="0" max="6" placeholder="Träff" oninput="calculateLiveTotals()" class="series-hits w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs"></div>
+                    <div class="col-span-4"><input type="number" min="0" max="6" placeholder="Figurer" oninput="calculateLiveTotals()" class="series-targets w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs"></div>
+                    <div class="col-span-2 text-right"><button type="button" onclick="this.closest('.grid').remove(); calculateLiveTotals();" class="text-slate-500 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div>
+                `;
+            } else {
+                row.innerHTML = `
+                    <div class="col-span-2 text-xs font-bold text-slate-400 pl-1">Serie ${index}</div>
+                    <div class="col-span-5"><input type="number" min="0" max="50" placeholder="Poäng" oninput="calculateLiveTotals()" class="series-score w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs font-semibold"></div>
+                    <div class="col-span-3"><input type="number" min="0" max="5" placeholder="Antal X" oninput="calculateLiveTotals()" class="series-x w-full bg-slate-950 border border-slate-700 text-white rounded px-2 py-1 text-xs text-brand-400"></div>
+                    <div class="col-span-2 text-right"><button type="button" onclick="this.closest('.grid').remove(); calculateLiveTotals();" class="text-slate-500 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div>
+                `;
+            }
+            container.appendChild(row);
+            lucide.createIcons();
+        }
+
+        function calculateLiveTotals() {
+            let total = 0;
+            let totalX = 0;
+            let count = 0;
+
+            if (activeDiscipline === 'field') {
+                const hits = document.querySelectorAll('.series-hits');
+                const targets = document.querySelectorAll('.series-targets');
+                let sumHits = 0;
+                let sumTargets = 0;
+                hits.forEach((h, i) => {
+                    const hVal = parseInt(h.value) || 0;
+                    const tVal = parseInt(targets[i]?.value) || 0;
+                    sumHits += hVal;
+                    sumTargets += tVal;
+                });
+                document.getElementById('live-total-score').innerText = `${sumHits} / ${sumTargets}`;
+                document.getElementById('live-total-x').innerText = '-';
+                document.getElementById('live-avg-score').innerText = '-';
+            } else {
+                const scores = document.querySelectorAll('.series-score');
+                const xCounts = document.querySelectorAll('.series-x');
+                scores.forEach((s, i) => {
+                    const val = parseInt(s.value) || 0;
+                    const xVal = parseInt(xCounts[i]?.value) || 0;
+                    if (s.value !== '') {
+                        total += val;
+                        totalX += xVal;
+                        count++;
+                    }
+                });
+                const avg = count > 0 ? (total / count).toFixed(1) : '0.0';
+                document.getElementById('live-total-score').innerText = total;
+                document.getElementById('live-total-x').innerText = totalX;
+                document.getElementById('live-avg-score').innerText = avg;
+            }
+        }
+
+        // Save New Session
+        function saveSession(e) {
+            e.preventDefault();
+
+            const date = document.getElementById('field-date').value;
+            const location = document.getElementById('field-location').value || 'Okänd Bana';
+            const discipline = document.getElementById('field-discipline').value;
+            const weapon = document.getElementById('field-weapon').value;
+            const caliber = document.getElementById('field-caliber').value;
+            const ammo = document.getElementById('field-ammo').value;
+            const readiness = document.getElementById('field-readiness').value;
+            const tags = document.getElementById('field-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+            const notes = document.getElementById('field-notes').value;
+
+            const seriesData = [];
+            let totalShots = 0;
+
+            if (discipline === 'field') {
+                const hits = document.querySelectorAll('.series-hits');
+                const targets = document.querySelectorAll('.series-targets');
+                hits.forEach((h, i) => {
+                    const hVal = parseInt(h.value) || 0;
+                    const tVal = parseInt(targets[i]?.value) || 0;
+                    seriesData.push({ hits: hVal, targets: tVal });
+                    totalShots += 6; // Field standard 6 shots per station
+                });
+            } else {
+                const scores = document.querySelectorAll('.series-score');
+                const xCounts = document.querySelectorAll('.series-x');
+                scores.forEach((s, i) => {
+                    const scoreVal = parseInt(s.value) || 0;
+                    const xVal = parseInt(xCounts[i]?.value) || 0;
+                    seriesData.push({ score: scoreVal, xCount: xVal });
+                    totalShots += 5; // Precision standard 5 shots per series
+                });
+            }
+
+            const session = {
+                id: Date.now().toString(),
+                date,
+                location,
+                discipline,
+                weapon,
+                caliber,
+                ammo,
+                readiness,
+                tags,
+                notes,
+                series: seriesData,
+                totalShots,
+                targetImage: scannedTargetImageBase64
+            };
+
+            shootingSessions.unshift(session);
+            saveSessionsToStorage();
+
+            // Reset form & attached image
+            document.getElementById('session-form').reset();
+            removeAttachedTargetImage();
+            setDefaultDateTime();
+            renderSeriesInputs();
+
+            // Navigate back to Dashboard
+            switchTab('dashboard');
+        }
+
+        // CAMERA / SCANNER LOGIC WITH INSTANT TRIGGER
+        function openScannerDirectly() {
+            document.getElementById('modal-scanner').classList.remove('hidden');
+            
+            // Try starting live camera feed immediately
+            startLiveCamera().catch(err => {
+                console.warn("Kameraström kunde inte startas direkt, aktiverar snabb filväljare", err);
+                document.getElementById('directCameraInput').click();
+            });
+        }
+
+        function closeScannerModal() {
+            stopCameraStream();
+            document.getElementById('modal-scanner').classList.add('hidden');
+        }
+
+        function triggerFilePicker() {
+            stopCameraStream();
+            document.getElementById('directCameraInput').click();
+        }
+
+        function handleDirectCameraFile(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    loadImageToCanvas(event.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function startLiveCamera() {
+            const video = document.getElementById('camera-stream');
+            const canvas = document.getElementById('target-canvas');
+            const placeholder = document.getElementById('scanner-placeholder');
+            const snapshotBtn = document.getElementById('btn-snapshot');
+            const reticle = document.getElementById('camera-reticle');
+
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 1280 } }
+                });
+                video.srcObject = mediaStream;
+                video.classList.remove('hidden');
+                reticle.classList.remove('hidden');
+                canvas.classList.add('hidden');
+                placeholder.classList.add('hidden');
+                snapshotBtn.classList.remove('hidden');
+            } catch (err) {
+                alert("Kameran kunde inte öppnas direkt. Välj en bild från galleriet istället.");
+                throw err;
+            }
+        }
+
+        function stopCameraStream() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            document.getElementById('camera-stream').classList.add('hidden');
+            document.getElementById('camera-reticle').classList.add('hidden');
+            document.getElementById('btn-snapshot').classList.add('hidden');
+        }
+
+        function captureSnapshot() {
+            const video = document.getElementById('camera-stream');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 800;
+            canvas.height = video.videoHeight || 800;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL('image/jpeg', 0.85);
+            stopCameraStream();
+            loadImageToCanvas(imageData);
+        }
+
+        function loadImageToCanvas(imageSrc) {
+            scannedTargetImageBase64 = imageSrc;
+            const canvas = document.getElementById('target-canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                canvas.classList.remove('hidden');
+                document.getElementById('scanner-placeholder').classList.add('hidden');
+                
+                // Initialize shot placement listener
+                canvas.onclick = (e) => handleCanvasClick(e, canvas, img);
+                scannedShots = [];
+                updateScannedSummary();
+            };
+            img.src = imageSrc;
+        }
+
+        function handleCanvasClick(e, canvas, img) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const clickX = (e.clientX - rect.left) * scaleX;
+            const clickY = (e.clientY - rect.top) * scaleY;
+
+            // Target Center assumed at image center
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = Math.min(canvas.width, canvas.height) / 2;
+
+            const dist = Math.hypot(clickX - centerX, clickY - centerY);
+            const normDist = dist / maxRadius; // 0 (center) to 1 (outer edge)
+
+            // Score estimation based on precision target ring ratios
+            let points = 0;
+            let isX = false;
+
+            if (normDist <= 0.08) { points = 10; isX = true; }
+            else if (normDist <= 0.16) { points = 10; }
+            else if (normDist <= 0.25) { points = 9; }
+            else if (normDist <= 0.35) { points = 8; }
+            else if (normDist <= 0.45) { points = 7; }
+            else if (normDist <= 0.55) { points = 6; }
+            else if (normDist <= 0.65) { points = 5; }
+            else if (normDist <= 0.75) { points = 4; }
+            else if (normDist <= 0.85) { points = 3; }
+            else if (normDist <= 0.95) { points = 2; }
+            else if (normDist <= 1.0)  { points = 1; }
+
+            scannedShots.push({ x: clickX, y: clickY, points, isX });
+            redrawCanvasWithShots(canvas, img);
+            updateScannedSummary();
+        }
+
+        function redrawCanvasWithShots(canvas, img) {
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            scannedShots.forEach((shot, index) => {
+                // Bullet Hole Marker
+                ctx.beginPath();
+                ctx.arc(shot.x, shot.y, canvas.width * 0.018, 0, Math.PI * 2);
+                ctx.fillStyle = '#f59e0b'; // Brand orange
+                ctx.fill();
+                ctx.lineWidth = canvas.width * 0.005;
+                ctx.strokeStyle = '#000000';
+                ctx.stroke();
+
+                // Shot Number Text
+                ctx.fillStyle = '#0f172a';
+                ctx.font = `bold ${canvas.width * 0.018}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(index + 1, shot.x, shot.y);
+            });
+        }
+
+        function updateScannedSummary() {
+            const count = scannedShots.length;
+            const score = scannedShots.reduce((acc, s) => acc + s.points, 0);
+            const xCount = scannedShots.filter(s => s.isX).length;
+
+            document.getElementById('scanned-shot-count').innerText = count;
+            document.getElementById('scanned-total-score').innerText = score;
+            document.getElementById('scanned-x-count').innerText = xCount;
+        }
+
+        function clearScannedShots() {
+            scannedShots = [];
+            const canvas = document.getElementById('target-canvas');
+            const img = new Image();
+            img.onload = () => redrawCanvasWithShots(canvas, img);
+            img.src = scannedTargetImageBase64;
+            updateScannedSummary();
+        }
+
+        function applyScannedScoreToSession() {
+            if (scannedShots.length === 0) {
+                alert("Inga skott har klickats ut på tavlan ännu.");
+                return;
+            }
+
+            const totalScore = scannedShots.reduce((acc, s) => acc + s.points, 0);
+            const xCount = scannedShots.filter(s => s.isX).length;
+
+            // Fill into first available inputs or add new series
+            const scoreInputs = document.querySelectorAll('.series-score');
+            const xInputs = document.querySelectorAll('.series-x');
+
+            let filled = false;
+            for (let i = 0; i < scoreInputs.length; i++) {
+                if (!scoreInputs[i].value) {
+                    scoreInputs[i].value = totalScore;
+                    xInputs[i].value = xCount;
+                    filled = true;
+                    break;
+                }
+            }
+
+            if (!filled && scoreInputs.length > 0) {
+                // If all full, replace last input
+                scoreInputs[scoreInputs.length - 1].value = totalScore;
+                xInputs[xInputs.length - 1].value = xCount;
+            }
+
+            // Display target image thumbnail preview
+            if (scannedTargetImageBase64) {
+                document.getElementById('target-image-preview').src = scannedTargetImageBase64;
+                document.getElementById('target-image-preview-container').classList.remove('hidden');
+            }
+
+            calculateLiveTotals();
+            closeScannerModal();
+            switchTab('new-session');
+        }
+
+        function removeAttachedTargetImage() {
+            scannedTargetImageBase64 = null;
+            document.getElementById('target-image-preview').src = '';
+            document.getElementById('target-image-preview-container').classList.add('hidden');
+        }
+
+        // ==================== DASHBOARD & STATS LOGIC ====================
+        function renderDashboard() {
+            let totalShots = 0;
+            let precisionSeries = [];
+            let pbSeries = 0;
+            const weaponCounts = {};
+
+            shootingSessions.forEach(s => {
+                totalShots += s.totalShots || 0;
+
+                // Weapon statistics
+                if (s.weapon) {
+                    weaponCounts[s.weapon] = (weaponCounts[s.weapon] || 0) + (s.totalShots || 0);
+                }
+
+                // Series score tracking
+                if (s.discipline !== 'field' && s.series) {
+                    s.series.forEach(ser => {
+                        const score = parseInt(ser.score) || 0;
+                        precisionSeries.push(score);
+                        if (score > pbSeries) pbSeries = score;
+                    });
+                }
+            });
+
+            // Update KPI cards
+            document.getElementById('stat-total-shots').innerText = totalShots.toLocaleString();
+            document.getElementById('stat-total-sessions').innerText = shootingSessions.length;
+            document.getElementById('stat-pb-series').innerText = pbSeries > 0 ? pbSeries : '0';
+
+            const recent10 = precisionSeries.slice(-10);
+            const avgPrecision = recent10.length > 0 ? (recent10.reduce((a, b) => a + b, 0) / recent10.length).toFixed(1) : '0.0';
+            document.getElementById('stat-avg-precision').innerText = avgPrecision;
+
+            // Render Weapon List
+            const weaponContainer = document.getElementById('weapon-shot-list');
+            weaponContainer.innerHTML = '';
+            const weaponKeys = Object.keys(weaponCounts);
+
+            if (weaponKeys.length === 0) {
+                weaponContainer.innerHTML = `<p class="text-xs text-slate-400 italic">Inga skott registrerade ännu.</p>`;
+            } else {
+                weaponKeys.forEach(w => {
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-between items-center bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 text-xs';
+                    row.innerHTML = `
+                        <span class="font-medium text-white flex items-center gap-2">
+                            <i data-lucide="shield text-brand-400" class="w-3.5 h-3.5"></i> ${escapeHtml(w)}
+                        </span>
+                        <span class="font-bold text-slate-300 bg-slate-950 px-2 py-1 rounded border border-slate-800">${weaponCounts[w]} skott</span>
+                    `;
+                    weaponContainer.appendChild(row);
+                });
+            }
+
+            // Render Recent Sessions
+            renderRecentSessions();
+            renderCharts();
+            lucide.createIcons();
+        }
+
+        function renderRecentSessions() {
+            const container = document.getElementById('recent-sessions-container');
+            container.innerHTML = '';
+
+            const recent = shootingSessions.slice(0, 3);
+            if (recent.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic">Inga registrerade skjutpass ännu.</p>`;
+                return;
+            }
+
+            recent.forEach(s => {
+                const card = createSessionCard(s);
+                container.appendChild(card);
+            });
+        }
+
+        function renderCharts() {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            const filter = document.getElementById('chart-filter').value;
+
+            const filteredSessions = shootingSessions.filter(s => filter === 'field' ? s.discipline === 'field' : s.discipline !== 'field').reverse();
+
+            const labels = filteredSessions.map(s => new Date(s.date).toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' }));
+            let dataPoints = [];
+
+            if (filter === 'field') {
+                dataPoints = filteredSessions.map(s => {
+                    let hits = 0;
+                    s.series.forEach(ser => hits += (parseInt(ser.hits) || 0));
+                    return hits;
+                });
+            } else {
+                dataPoints = filteredSessions.map(s => {
+                    if (!s.series || s.series.length === 0) return 0;
+                    const tot = s.series.reduce((a, b) => a + (parseInt(b.score) || 0), 0);
+                    return (tot / s.series.length).toFixed(1);
+                });
+            }
+
+            if (progressChartInstance) {
+                progressChartInstance.destroy();
+            }
+
+            progressChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: filter === 'field' ? 'Totalt Antal Träff' : 'Seriesnitt Poäng',
+                        data: dataPoints,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#f59e0b',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== HISTORY LIST LOGIC ====================
+        function renderHistoryList() {
+            const container = document.getElementById('history-list-container');
+            container.innerHTML = '';
+
+            const search = document.getElementById('history-search').value.toLowerCase();
+            const filterDisc = document.getElementById('history-filter-discipline').value;
+
+            const filtered = shootingSessions.filter(s => {
+                const matchesDisc = filterDisc === 'all' || s.discipline === filterDisc;
+                const matchesSearch = s.location.toLowerCase().includes(search) || 
+                                     s.weapon.toLowerCase().includes(search) || 
+                                     (s.notes && s.notes.toLowerCase().includes(search));
+                return matchesDisc && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-slate-500 text-xs">Inga skjutpass hittades.</div>`;
+                return;
+            }
+
+            filtered.forEach(s => {
+                const card = createSessionCard(s);
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function createSessionCard(s) {
+            const card = document.createElement('div');
+            card.className = 'bg-slate-900/80 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition shadow-sm';
+
+            const dateStr = new Date(s.date).toLocaleDateString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            let scoreBadge = '';
+            if (s.discipline === 'field') {
+                let totalHits = 0, totalTargets = 0;
+                s.series.forEach(ser => { totalHits += ser.hits || 0; totalTargets += ser.targets || 0; });
+                scoreBadge = `<span class="bg-brand-500/10 text-brand-400 border border-brand-500/20 font-bold px-2.5 py-1 rounded-lg text-xs">${totalHits}/${totalTargets} träff</span>`;
+            } else {
+                let totalScore = 0, totalX = 0;
+                s.series.forEach(ser => { totalScore += ser.score || 0; totalX += ser.xCount || 0; });
+                const avg = s.series.length > 0 ? (totalScore / s.series.length).toFixed(1) : 0;
+                scoreBadge = `<span class="bg-brand-500/10 text-brand-400 border border-brand-500/20 font-bold px-2.5 py-1 rounded-lg text-xs">${totalScore}p (${totalX}X) • ${avg} snitt</span>`;
+            }
+
+            card.innerHTML = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider bg-slate-800 text-slate-300 px-2 py-0.5 rounded">${escapeHtml(s.discipline)}</span>
+                        <h3 class="font-bold text-white text-sm">${escapeHtml(s.location)}</h3>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${scoreBadge}
+                        <span class="text-[11px] text-slate-400">${dateStr}</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 border-t border-slate-800/80 pt-2.5 mt-2">
+                    <div class="flex items-center gap-3">
+                        <span><strong class="text-slate-300">Vapen:</strong> ${escapeHtml(s.weapon)} (${escapeHtml(s.caliber)})</span>
+                        <span><strong class="text-slate-300">Skott:</strong> ${s.totalShots}st</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${s.targetImage ? '<span class="text-emerald-400 flex items-center gap-1 text-[11px]"><i data-lucide="image" class="w-3 h-3"></i> Måltavla</span>' : ''}
+                        <button onclick="viewSessionDetails('${s.id}')" class="text-brand-400 hover:underline text-xs font-semibold">Visa detaljer</button>
+                        <button onclick="deleteSession('${s.id}')" class="text-slate-500 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function viewSessionDetails(id) {
+            const s = shootingSessions.find(item => item.id === id);
+            if (!s) return;
+
+            document.getElementById('detail-title').innerText = `${s.location} - ${s.discipline.toUpperCase()}`;
+            const body = document.getElementById('detail-body');
+
+            let seriesRows = '';
+            if (s.discipline === 'field') {
+                s.series.forEach((ser, i) => {
+                    seriesRows += `<div class="flex justify-between py-1 border-b border-slate-800"><span>Station ${i+1}</span><span class="font-bold text-white">${ser.hits} träff / ${ser.targets} figurer</span></div>`;
+                });
+            } else {
+                s.series.forEach((ser, i) => {
+                    seriesRows += `<div class="flex justify-between py-1 border-b border-slate-800"><span>Serie ${i+1}</span><span class="font-bold text-white">${ser.score}p (${ser.xCount}X)</span></div>`;
+                });
+            }
+
+            body.innerHTML = `
+                <div class="grid grid-cols-2 gap-2 text-xs bg-slate-900 p-3 rounded-xl border border-slate-800">
+                    <div><span class="text-slate-400 block">Datum:</span> <strong class="text-white">${new Date(s.date).toLocaleString('sv-SE')}</strong></div>
+                    <div><span class="text-slate-400 block">Vapen:</span> <strong class="text-white">${escapeHtml(s.weapon)}</strong></div>
+                    <div><span class="text-slate-400 block">Kaliber:</span> <strong class="text-white">${escapeHtml(s.caliber)}</strong></div>
+                    <div><span class="text-slate-400 block">Ammunition:</span> <strong class="text-white">${escapeHtml(s.ammo || 'Ej angivet')}</strong></div>
+                </div>
+
+                ${s.targetImage ? `
+                    <div>
+                        <span class="text-slate-400 block mb-1">Skannad Måltavla:</span>
+                        <img src="${s.targetImage}" class="w-full max-h-64 object-contain rounded-xl border border-slate-800 bg-slate-950">
+                    </div>
+                ` : ''}
+
+                <div>
+                    <h4 class="font-bold text-white mb-2">Serieresultat:</h4>
+                    <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1">
+                        ${seriesRows}
+                    </div>
+                </div>
+
+                ${s.notes ? `
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Anteckningar:</h4>
+                        <p class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-300">${escapeHtml(s.notes)}</p>
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('modal-session-detail').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeDetailModal() {
+            document.getElementById('modal-session-detail').classList.add('hidden');
+        }
+
+        function deleteSession(id) {
+            if (confirm("Är du säker på att du vill radera detta skjutpass?")) {
+                shootingSessions = shootingSessions.filter(s => s.id !== id);
+                saveSessionsToStorage();
+                renderDashboard();
+                renderHistoryList();
+            }
+        }
+
+        // ==================== SETTINGS & DATA EXPORT/IMPORT ====================
+        function openSettingsModal() {
+            document.getElementById('modal-settings').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('modal-settings').classList.add('hidden');
+        }
+
+        function exportDataJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(shootingSessions, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `skytte_dagbok_backup_${new Date().toISOString().slice(0, 10)}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        shootingSessions = imported;
+                        saveSessionsToStorage();
+                        renderDashboard();
+                        alert("Säkerhetskopia importerad framgångsrikt!");
+                        closeSettingsModal();
+                    } else {
+                        alert("Ogiltigt JSON-format.");
+                    }
+                } catch (err) {
+                    alert("Fel vid läsning av fil.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadDemoData() {
+            shootingSessions = [
+                {
+                    id: "demo-1",
+                    date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 16),
+                    location: "Precisionstävling Haninge",
+                    discipline: "precision",
+                    weapon: "Pardini SP 22",
+                    caliber: ".22 LR",
+                    ammo: "SK Standard Plus",
+                    readiness: "4",
+                    tags: ["Tävling", "Avfyrning"],
+                    notes: "Bra fokus under hela serien. Ett par slaskskott i 4:e serien.",
+                    series: [
+                        { score: 48, xCount: 2 },
+                        { score: 47, xCount: 1 },
+                        { score: 49, xCount: 3 },
+                        { score: 45, xCount: 0 },
+                        { score: 48, xCount: 2 },
+                        { score: 50, xCount: 4 }
+                    ],
+                    totalShots: 30
+                },
+                {
+                    id: "demo-2",
+                    date: new Date(Date.now() - 86400000 * 5).toISOString().slice(0, 16),
+                    location: "Klubbbana Fält",
+                    discipline: "field",
+                    weapon: "Neuhausen 9mm",
+                    caliber: "9mm",
+                    ammo: "Magtech 9mm",
+                    readiness: "3",
+                    tags: ["Fältskytte", "Snabba lyft"],
+                    notes: "Station 4 och 6 kändes stressiga.",
+                    series: [
+                        { hits: 6, targets: 6 },
+                        { hits: 5, targets: 4 },
+                        { hits: 6, targets: 5 },
+                        { hits: 6, targets: 6 },
+                        { hits: 4, targets: 3 },
+                        { hits: 6, targets: 6 }
+                    ],
+                    totalShots: 36
+                }
+            ];
+            saveSessionsToStorage();
+            renderDashboard();
+            closeSettingsModal();
+            alert("Exempeldata laddades in!");
+        }
+
+        function clearAllData() {
+            if (confirm("Vill du verkligen rensa ALLA skjutpass? Detta kan inte ångras!")) {
+                shootingSessions = [];
+                saveSessionsToStorage();
+                renderDashboard();
+                closeSettingsModal();
+            }
+        }
+
+        // Utility: Escape HTML to prevent XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
